@@ -23,7 +23,15 @@ class WebsocketGameController < WebsocketRails::BaseController
 			:connection => connection()
 		}
 
-		new_round
+		# クライアントに id を送る
+		send_message(:connect_accepted, {
+			:id => client_id
+		})
+
+		# 接続しているクライアントにクライアント一覧リストを送る
+		send_message(:client_list, {
+			:clients => controller_store[:clients]
+		})
 	end
 
 	# クライアント切断時のイベントハンドラ
@@ -52,8 +60,8 @@ class WebsocketGameController < WebsocketRails::BaseController
 		received_message = message()
 
 		# 時刻の差分を計算
-		datetime_diff = received_message[:datetime] - controller_store[:new_game_sent_time]
-		delay = (Time.now - controller_store[:new_game_sent_time]) / 2.0
+		datetime_diff = received_message[:datetime] - controller_store[:sent_time]
+		delay = (Time.now - controller_store[:sent_time]) / 2.0
 
 		if controller_store[:game][:max_delay] < delay then
 			controller_store[:game][:max_delay] = delay
