@@ -29,9 +29,11 @@ class WebsocketGameController < WebsocketRails::BaseController
 		})
 
 		# 接続しているクライアントにクライアント一覧リストを送る
-		send_message(:client_list, {
-			:clients => controller_store[:clients]
+		broadcast_message(:client_list, {
+			:clients => controller_store[:clients].keys
 		})
+
+		new_game
 	end
 
 	# クライアント切断時のイベントハンドラ
@@ -52,6 +54,26 @@ class WebsocketGameController < WebsocketRails::BaseController
 		broadcast_message(:websocket_game, received_message)
 	end
 
+	# 遅延を調べる
+	def update_delay
+		logger.debug("update_delay")
+		client_id = client_id()
+		received_message = message()
+
+		# 時刻の差分を計算
+		datetime_diff = received_message[:sent_time] - controller_store[:new_game_sent_time]
+		delay = (Time.now - controller_store[:new_game_sent_time]) / 2.0
+
+		if controller_store[:game][:max_delay] < delay then
+			controller_store[:game][:max_delay] = delay
+		end
+
+		if controller_store[:game][:clients].key?(client_id) then
+			controller_store[:game][:clients][client_id][:datetime_diff] = datetime_diff
+			controller_store[:game][:clients][client_id][:delay] = delay
+		end
+	end
+
 	# 試合に参加する時に呼ばれるイベントハンドラ
 	#
 	def join_game
@@ -59,20 +81,14 @@ class WebsocketGameController < WebsocketRails::BaseController
 		client_id = client_id()
 		received_message = message()
 
-		# 時刻の差分を計算
-		datetime_diff = received_message[:datetime] - controller_store[:sent_time]
-		delay = (Time.now - controller_store[:sent_time]) / 2.0
-
-		if controller_store[:game][:max_delay] < delay then
-			controller_store[:game][:max_delay] = delay
-		end
-
 		# 試合情報更新
 		controller_store[:game][:clients][client_id] = {
-			:datetime_diff => datetime_diff,
-			:delay => delay,
+			:datetime_diff => 0,
+			:delay => 0,
 			:score => 0
 		}
+
+		check_delay connection()
 
 		# 全員参加したら最初のラウンド開始
 		if controller_store[:game][:clients].length <= controller_store[:clients].length then
@@ -129,6 +145,14 @@ class WebsocketGameController < WebsocketRails::BaseController
 				close_round
 			end
 		end
+	end
+
+	# delay を調べる
+	#  connection: 接続
+	private
+	def check_delay(connection)
+		logger.debug("check_delay")
+		connection.send_message :notify_delay, []
 	end
 
 	# 新規ゲームを開始するメソッド
