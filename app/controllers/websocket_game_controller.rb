@@ -3,9 +3,6 @@
 #
 class WebsocketGameController < WebsocketRails::BaseController
 
-	# 最大ゲームスコア. このスコアをユーザが超えたらゲーム終了.
-	GAME_END_SCORE = 1000
-
 	# 初期化
 	#
 	def initialize_session
@@ -20,7 +17,9 @@ class WebsocketGameController < WebsocketRails::BaseController
 		client_id = client_id()
 		logger.debug("client connected: #{client_id}")
 		controller_store[:clients][client_id] = {
-			:connection => connection()
+			:connection => connection(),
+			:datetime_diff => 0,
+			:delay => 0
 		}
 
 		# クライアントに id を送る
@@ -61,16 +60,16 @@ class WebsocketGameController < WebsocketRails::BaseController
 		received_message = message()
 
 		# 時刻の差分を計算
-		datetime_diff = received_message[:sent_time] - controller_store[:new_game_sent_time]
-		delay = (Time.now - controller_store[:new_game_sent_time]) / 2.0
+		datetime_diff = received_message[:sent_time] - controller_store[:check_delay_sent_time]
+		delay = (Time.now - controller_store[:check_delay_sent_time]) / 2.0
 
 		if controller_store[:game][:max_delay] < delay then
 			controller_store[:game][:max_delay] = delay
 		end
 
-		if controller_store[:game][:clients].key?(client_id) then
-			controller_store[:game][:clients][client_id][:datetime_diff] = datetime_diff
-			controller_store[:game][:clients][client_id][:delay] = delay
+		if controller_store[:clients].key?(client_id) then
+			controller_store[:clients][client_id][:datetime_diff] = datetime_diff
+			controller_store[:clients][client_id][:delay] = delay
 		end
 	end
 
@@ -83,12 +82,14 @@ class WebsocketGameController < WebsocketRails::BaseController
 
 		# 試合情報更新
 		controller_store[:game][:clients][client_id] = {
-			:datetime_diff => 0,
-			:delay => 0,
+			:datetime_diff => controller_store[:clients][client_id][:datetime_diff],
 			:score => 0
 		}
 
-		check_delay connection()
+		# max_delay 更新
+		if controller_store[:game][:max_delay] < controller_store[:clients][client_id][:delay] then
+			controller_store[:game][:max_delay] = controller_store[:clients][client_id][:delay]
+		end
 
 		# 全員参加したら最初のラウンド開始
 		if controller_store[:game][:clients].length <= controller_store[:clients].length then
@@ -147,14 +148,6 @@ class WebsocketGameController < WebsocketRails::BaseController
 		end
 	end
 
-	# delay を調べる
-	#  connection: 接続
-	private
-	def check_delay(connection)
-		logger.debug("check_delay")
-		connection.send_message :notify_delay, []
-	end
-
 	# 新規ゲームを開始するメソッド
 	#
 	private
@@ -170,13 +163,8 @@ class WebsocketGameController < WebsocketRails::BaseController
 		}
 		logger.debug(" --> game = #{controller_store[:game]}")
 
-		# メッセージ送信
-		message_to_send = {
-			
-		}
-
-		controller_store[:new_game_sent_time] = Time.now
-		broadcast_message(:new_game, message_to_send)
+		controller_store[:check_delay_sent_time] = Time.now
+		broadcast_message(:check_delay, {})
 	end
 
 	# 新規ラウンドを開始するメソッド
@@ -197,11 +185,12 @@ class WebsocketGameController < WebsocketRails::BaseController
 
 		# ラウンドの開始時刻を決定
 		trigger_time = Time.now + controller_store[:game][:max_delay] + rand(1..10)
+		logger.debug(" --> trigger_time = #{trigger_time}")
 
 		# それぞれのクライアントにメッセージ送信
 		controller_store[:game][:clients].each { |client_id, client|
 			message_to_send = {
-				:time => trigger_time + client[:datetime_diff]
+				:trigger_time => trigger_time + client[:datetime_diff]
 			}
 			connection = controller_store[:clients][client_id][:connection]
 			connection.send_message :new_round, message_to_send
@@ -233,7 +222,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 		broadcast_message(:close_round, message_to_send)
 
 		# ゲーム終了の判断
-		if controller_store[:game][:clients].key?(winner) && controller_store[:game][:clients][winner][:score] > GAME_END_SCORE then
+		if controller_store[:game][:clients].key?(winner) && controller_store[:game][:clients][winner][:score] > Constants::GAME_END_SCORE then
 			close_game(winner)
 		else
 			new_round
@@ -249,6 +238,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 		# 試合情報更新
 		controller_store[:game][:state] = "CLOSED"
 		controller_store[:game][:winner] = winner
+		logger.debug(" --> game = #{controller_store[:game]}")
 
 		# メッセージ送信
 		message_to_send = {
