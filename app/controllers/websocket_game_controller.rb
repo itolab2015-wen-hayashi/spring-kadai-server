@@ -59,8 +59,11 @@ class WebsocketGameController < WebsocketRails::BaseController
 		client_id = client_id()
 		received_message = message()
 
+		sent_time = Time.iso8601(received_message[:sent_time])
+		logger.debug("  sent_time = #{sent_time}")
+
 		# 時刻の差分を計算
-		datetime_diff = received_message[:sent_time] - controller_store[:check_delay_sent_time]
+		datetime_diff = sent_time - controller_store[:check_delay_sent_time]
 		delay = (Time.now - controller_store[:check_delay_sent_time]) / 2.0
 
 		if controller_store[:game][:max_delay] < delay then
@@ -190,7 +193,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 		# それぞれのクライアントにメッセージ送信
 		controller_store[:game][:clients].each { |client_id, client|
 			message_to_send = {
-				:trigger_time => trigger_time + client[:datetime_diff]
+				:trigger_time => (trigger_time + client[:datetime_diff]).iso8601(6)
 			}
 			connection = controller_store[:clients][client_id][:connection]
 			connection.send_message :new_round, message_to_send
