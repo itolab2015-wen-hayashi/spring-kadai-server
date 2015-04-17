@@ -95,7 +95,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 		end
 
 		# 全員参加したら最初のラウンド開始
-		if controller_store[:game][:clients].length <= controller_store[:clients].length then
+		if controller_store[:clients].length <= controller_store[:game][:clients].length  then
 			controller_store[:game][:state] = "RUNNING"
 			new_round
 		end
