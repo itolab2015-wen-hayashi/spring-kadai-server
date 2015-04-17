@@ -187,7 +187,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 		logger.debug(" --> round = #{controller_store[:round]}")
 
 		# ラウンドの開始時刻を決定
-		trigger_time = Time.now + controller_store[:game][:max_delay] + rand(1..10)
+		trigger_time = Time.now + controller_store[:game][:max_delay] + (rand(1000..2000) / 1000)
 		logger.debug(" --> trigger_time = #{trigger_time}")
 
 		# それぞれのクライアントにメッセージ送信
