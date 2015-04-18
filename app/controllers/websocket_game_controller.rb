@@ -18,9 +18,11 @@ class WebsocketGameController < WebsocketRails::BaseController
 		logger.debug("client connected: #{client_id}")
 		controller_store[:clients][client_id] = {
 			:connection => connection(),
+			:datetime_diff_samples => [],
+			:delay_samples => [],
 			:datetime_diff => 0,
 			:delay => 0,
-			:samples => 0
+			:ptr => 0
 		}
 
 		# クライアントに id を送る
@@ -79,9 +81,12 @@ class WebsocketGameController < WebsocketRails::BaseController
 		if controller_store[:clients].key?(client_id) then
 			client = controller_store[:clients][client_id]
 
-			client[:datetime_diff] = (client[:samples] * client[:datetime_diff] + datetime_diff) / (client[:samples] + 1)
-			client[:delay] = (client[:samples] * client[:delay] + delay) / (client[:samples] + 1)
-			client[:samples] += 1
+			client[:datetime_diff_samples][client[:ptr] % 5] = datetime_diff
+			client[:delay_samples][client[:ptr] % 5] = delay
+
+			client[:datetime_diff] = mean(client[:datetime_diff_samples])
+			client[:delay] = mean(client[:delay_samples])
+			client[:ptr] += 1
 		end
 		logger.debug("  clients = #{controller_store[:clients]}")
 
@@ -170,9 +175,12 @@ class WebsocketGameController < WebsocketRails::BaseController
 	def check_delays
 		sent_time = Time.now
 
-		broadcast_message(:check_delay, {
-			:sent_time => sent_time
-		})
+		controller_store[:clients].each { |client_id, client|
+			connection = client[:connection]
+			connection.send_message :check_delay, {
+				:sent_time => Time.now.iso8601(6)
+			}
+		}
 	end
 
 	# 新規ゲームを開始するメソッド
@@ -278,5 +286,16 @@ class WebsocketGameController < WebsocketRails::BaseController
 		}
 
 		broadcast_message(:close_game, message_to_send)
+	end
+
+	# 配列の平均を計算
+	#
+	private
+	def mean(array)
+		sum = 0
+		for i in 0..array.length-1 do
+			sum += array[i]
+		end
+		return (sum/array.length)
 	end
 end
