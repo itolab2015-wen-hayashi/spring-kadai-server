@@ -41,6 +41,11 @@ class WebsocketGameController < WebsocketRails::BaseController
 		client_id = client_id()
 		logger.debug("client disconnected: #{client_id}")
 		controller_store[:clients].delete(client_id)
+
+		if controller_store[:game][:clients].key?(client_id) then
+			controller_store[:game][:clients].delete(client_id)
+			controller_store[:round][:clients].delete(client_id)
+		end
 	end
 
 	# テスト用メソッド
@@ -59,21 +64,27 @@ class WebsocketGameController < WebsocketRails::BaseController
 		client_id = client_id()
 		received_message = message()
 
-		sent_time = Time.iso8601(received_message[:sent_time])
+		now = Time.now
+
+		sent_time = Time.iso8601(received_message[:recv_time]) # サーバが送った時刻
+		recv_time = Time.iso8601(received_message[:sent_time]) # クライアントが受信した時刻
 		logger.debug("  sent_time = #{sent_time}")
+		logger.debug("  recv_time = #{recv_time}")
 
 		# 時刻の差分を計算
-		datetime_diff = sent_time - controller_store[:check_delay_sent_time]
-		delay = (Time.now - controller_store[:check_delay_sent_time]) / 2.0
-
-		if controller_store[:game][:max_delay] < delay then
-			controller_store[:game][:max_delay] = delay
-		end
+		delay = (now - sent_time) / 2.0
+		datetime_diff = ((recv_time - (sent_time + delay)) + (now - (recv_time + delay))) / 2.0
 
 		if controller_store[:clients].key?(client_id) then
 			controller_store[:clients][client_id][:datetime_diff] = datetime_diff
 			controller_store[:clients][client_id][:delay] = delay
 		end
+		logger.debug("  clients = #{controller_store[:clients]}")
+
+		if controller_store[:game][:max_delay] < delay then
+			controller_store[:game][:max_delay] = delay
+		end
+		logger.debug("  max_delay = #{controller_store[:game][:max_delay]}")
 	end
 
 	# 試合に参加する時に呼ばれるイベントハンドラ
@@ -151,6 +162,16 @@ class WebsocketGameController < WebsocketRails::BaseController
 		end
 	end
 
+	# 遅延確認
+	#
+	def check_delays
+		sent_time = Time.now
+
+		broadcast_message(:check_delay, {
+			:sent_time => sent_time
+		})
+	end
+
 	# 新規ゲームを開始するメソッド
 	#
 	private
@@ -166,8 +187,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 		}
 		logger.debug(" --> game = #{controller_store[:game]}")
 
-		controller_store[:check_delay_sent_time] = Time.now
-		broadcast_message(:check_delay, {})
+		check_delays
 	end
 
 	# 新規ラウンドを開始するメソッド
@@ -198,6 +218,8 @@ class WebsocketGameController < WebsocketRails::BaseController
 			connection = controller_store[:clients][client_id][:connection]
 			connection.send_message :new_round, message_to_send
 		}
+
+		check_delays
 	end
 
 	# ラウンドを終えるメソッド
