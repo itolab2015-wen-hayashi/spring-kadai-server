@@ -19,7 +19,8 @@ class WebsocketGameController < WebsocketRails::BaseController
 		controller_store[:clients][client_id] = {
 			:connection => connection(),
 			:datetime_diff => 0,
-			:delay => 0
+			:delay => 0,
+			:samples => 0
 		}
 
 		# クライアントに id を送る
@@ -76,8 +77,11 @@ class WebsocketGameController < WebsocketRails::BaseController
 		datetime_diff = (((sent_time + delay) - recv_time) + (now - (recv_time + delay))) / 2.0
 
 		if controller_store[:clients].key?(client_id) then
-			controller_store[:clients][client_id][:datetime_diff] = datetime_diff
-			controller_store[:clients][client_id][:delay] = delay
+			client = controller_store[:clients][client_id]
+
+			client[:datetime_diff] = (client[:samples] * client[:datetime_diff] + datetime_diff) / (client[:samples] + 1)
+			client[:delay] = (client[:samples] * client[:delay] + delay) / (client[:samples] + 1)
+			client[:samples] += 1
 		end
 		logger.debug("  clients = #{controller_store[:clients]}")
 
@@ -215,7 +219,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 			datetime_diff = clients[client_id][:datetime_diff]
 
 			message_to_send = {
-				:trigger_time => (trigger_time + datetime_diff).iso8601(6)
+				:trigger_time => (trigger_time - datetime_diff).iso8601(6)
 			}
 
 			connection = clients[client_id][:connection]
