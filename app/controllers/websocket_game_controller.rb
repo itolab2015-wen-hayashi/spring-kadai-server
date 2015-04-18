@@ -73,7 +73,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 
 		# 時刻の差分を計算
 		delay = (now - sent_time) / 2.0
-		datetime_diff = ((recv_time - (sent_time + delay)) + (now - (recv_time + delay))) / 2.0
+		datetime_diff = (((sent_time + delay) - recv_time) + (now - (recv_time + delay))) / 2.0
 
 		if controller_store[:clients].key?(client_id) then
 			controller_store[:clients][client_id][:datetime_diff] = datetime_diff
@@ -96,7 +96,6 @@ class WebsocketGameController < WebsocketRails::BaseController
 
 		# 試合情報更新
 		controller_store[:game][:clients][client_id] = {
-			:datetime_diff => controller_store[:clients][client_id][:datetime_diff],
 			:score => 0
 		}
 
@@ -211,11 +210,15 @@ class WebsocketGameController < WebsocketRails::BaseController
 		logger.debug(" --> trigger_time = #{trigger_time}")
 
 		# それぞれのクライアントにメッセージ送信
+		clients = controller_store[:clients]
 		controller_store[:game][:clients].each { |client_id, client|
+			datetime_diff = clients[client_id][:datetime_diff]
+
 			message_to_send = {
-				:trigger_time => (trigger_time + client[:datetime_diff]).iso8601(6)
+				:trigger_time => (trigger_time + datetime_diff).iso8601(6)
 			}
-			connection = controller_store[:clients][client_id][:connection]
+
+			connection = clients[client_id][:connection]
 			connection.send_message :new_round, message_to_send
 		}
 
