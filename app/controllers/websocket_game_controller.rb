@@ -9,6 +9,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 		logger.debug("initializing WebsocketGameController")
 		controller_store[:event_count] = 0
 		controller_store[:clients] = {}
+		controller_store[:devices] = {}
 	end
 
 	# クライアント接続時のイベントハンドラ
@@ -28,11 +29,6 @@ class WebsocketGameController < WebsocketRails::BaseController
 		# クライアントに id を送る
 		send_message(:connect_accepted, {
 			:id => client_id
-		})
-
-		# 接続しているクライアントにクライアント一覧リストを送る
-		broadcast_message(:client_list, {
-			:clients => controller_store[:clients].keys
 		})
 
 		new_game
@@ -59,6 +55,27 @@ class WebsocketGameController < WebsocketRails::BaseController
 
 		# :websocket_game イベントをブロードキャスト
 		broadcast_message(:websocket_game, received_message)
+	end
+
+	# 認証する（名前とかデバイス情報とか送る）
+	#
+	def authenticate
+		logger.debug("authenticate")
+		client_id = client_id()
+		received_message = message()
+		logger.debug("  #{client_id}: #{received_message}")
+
+		# デバイス名を取得 // TODO
+		controller_store[:clients][client_id][:device] = {
+			:name => received_message[:name]
+		}
+		controller_store[:devices][client_id] = received_message[:name]
+
+		# 接続しているクライアントにクライアント一覧リストを送る
+		broadcast_message(:client_list, {
+			:clients => controller_store[:clients].keys,
+			:devices => controller_store[:devices]
+		})
 	end
 
 	# 遅延を調べる
@@ -217,6 +234,11 @@ class WebsocketGameController < WebsocketRails::BaseController
 		}
 		logger.debug(" --> round = #{controller_store[:round]}")
 
+		# タイルの設定
+		x = rand(0..5)
+		y = rand(0..9)
+		color = rand(0..3)
+
 		# ラウンドの開始時刻を決定
 		trigger_time = Time.now + controller_store[:game][:max_delay] + (rand(1000..2000) / 1000)
 		logger.debug(" --> trigger_time = #{trigger_time}")
@@ -227,6 +249,9 @@ class WebsocketGameController < WebsocketRails::BaseController
 			datetime_diff = clients[client_id][:datetime_diff]
 
 			message_to_send = {
+				:x => x,
+				:y => y,
+				:color => color,
 				:trigger_time => (trigger_time - datetime_diff).iso8601(6)
 			}
 

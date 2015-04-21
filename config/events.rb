@@ -16,6 +16,7 @@ WebsocketRails::EventMap.describe do
   subscribe :client_connected, to: WebsocketGameController, with_method: :client_connected
   subscribe :client_disconnected, to: WebsocketGameController, with_method: :client_disconnected
   subscribe :websocket_game, to: WebsocketGameController, with_method: :game_message
+  subscribe :authenticate, to: WebsocketGameController, with_method: :authenticate
   subscribe :update_delay, to: WebsocketGameController, with_method: :update_delay
   subscribe :join_game, to: WebsocketGameController, with_method: :join_game
   subscribe :tile_pushed, to: WebsocketGameController, with_method: :tile_pushed
