@@ -36,6 +36,8 @@ class WebsocketGameController < WebsocketRails::BaseController
 		send_message(:connect_accepted, {
 			:id => client_id
 		})
+
+		check_delay connection()
 	end
 
 	# クライアント切断時のイベントハンドラ
@@ -50,22 +52,23 @@ class WebsocketGameController < WebsocketRails::BaseController
 			if controller_store[:game].key?(:clients) then
 				controller_store[:game][:clients].delete(client_id)
 			end
-			logger.debug("A")
+			
 			if controller_store[:round].key?(:clients) then
 				controller_store[:round][:clients].delete(client_id)
 			end
-			logger.debug("B")
 
-			logger.debug("#{controller_store[:round][:clients]}")
-			if controller_store[:round][:clients].empty? then
-				if controller_store[:round][:state] == "PUSHED" then
-					close_round
+			if controller_store[:round].key?(:clients) then
+				if controller_store[:round][:clients].empty? then
+					if controller_store[:round][:state] == "PUSHED" then
+						close_round
+					end
 				end
 			end
 
-			logger.debug("#{controller_store[:game][:clients]}")
-			if controller_store[:game][:clients].empty? then
-				close_game
+			if controller_store[:game].key?(:clients) then
+				if controller_store[:game][:clients].empty? then
+					close_game
+				end
 			end
 		end
 
@@ -232,9 +235,14 @@ class WebsocketGameController < WebsocketRails::BaseController
 
 		controller_store[:clients].each { |client_id, client|
 			connection = client[:connection]
-			connection.send_message :check_delay, {
-				:sent_time => Time.now.iso8601(6)
-			}
+			check_delay connection
+		}
+	end
+
+	private
+	def check_delay(connection)
+		connection.send_message :check_delay, {
+			:sent_time => Time.now.iso8601(6)
 		}
 	end
 
