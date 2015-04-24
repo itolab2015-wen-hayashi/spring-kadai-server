@@ -45,6 +45,13 @@ class WebsocketGameController < WebsocketRails::BaseController
 		if controller_store[:game][:clients].key?(client_id) then
 			controller_store[:game][:clients].delete(client_id)
 			controller_store[:round][:clients].delete(client_id)
+
+			if controller_store[:game][:state] == "PUSHED" then
+				# すべてのクライアントから結果を受信したかどうか
+				if controller_store[:round][:clients].empty? then
+					close_round
+				end
+			end
 		end
 	end
 
@@ -72,11 +79,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 		}
 		controller_store[:devices][client_id] = received_message[:name]
 
-		# 接続しているクライアントにクライアント一覧リストを送る
-		broadcast_message(:client_list, {
-			:clients => controller_store[:clients].keys,
-			:devices => controller_store[:devices]
-		})
+		send_client_list
 	end
 
 	# 遅延を調べる
@@ -173,7 +176,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 			logger.debug(" --> clients in round = #{controller_store[:round][:clients]}")
 
 			# 勝者を更新
-			if !received_message[:approve] then
+			if received_message.key?(:approve) && !received_message[:approve] then
 				if received_message[:elapsed_time] < controller_store[:round][:min_elapsed_time] then
 					logger.debug("updating the winner")
 					controller_store[:round][:winner] = client_id
@@ -199,6 +202,17 @@ class WebsocketGameController < WebsocketRails::BaseController
 				:sent_time => Time.now.iso8601(6)
 			}
 		}
+	end
+
+	# クライアント一覧を送る
+	#
+	private
+	def send_client_list
+		# 接続しているクライアントにクライアント一覧リストを送る
+		broadcast_message(:client_list, {
+			:clients => controller_store[:clients].keys,
+			:devices => controller_store[:devices]
+		})
 	end
 
 	# 新規ゲームを開始するメソッド
