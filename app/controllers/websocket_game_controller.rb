@@ -67,7 +67,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 
 			if controller_store[:game].key?(:clients) then
 				if controller_store[:game][:clients].empty? then
-					close_game
+					close_game nil
 				end
 			end
 		end
