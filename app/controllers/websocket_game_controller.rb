@@ -40,6 +40,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 		client_id = client_id()
 		logger.debug("client disconnected: #{client_id}")
 		controller_store[:clients].delete(client_id)
+		controller_store[:devices].delete(client_id)
 
 		if controller_store[:game][:clients].key?(client_id) then
 			controller_store[:game][:clients].delete(client_id)
@@ -287,7 +288,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 		broadcast_message(:close_round, message_to_send)
 
 		# ゲーム終了の判断
-		if controller_store[:game][:clients].key?(winner) && controller_store[:game][:clients][winner][:score] > Constants::GAME_END_SCORE then
+		if controller_store[:game][:clients].key?(winner) && controller_store[:game][:clients][winner][:score] >= Constants::GAME_END_SCORE then
 			close_game(winner)
 		else
 			new_round
