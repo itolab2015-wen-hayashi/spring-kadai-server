@@ -48,15 +48,15 @@ class WebsocketGameController < WebsocketRails::BaseController
 		controller_store[:clients].delete(client_id)
 		controller_store[:devices].delete(client_id)
 
-		if controller_store[:game][:state] == "RUNNING" then
-			if controller_store[:game].key?(:clients) then
-				controller_store[:game][:clients].delete(client_id)
-			end
-			
-			if controller_store[:round].key?(:clients) then
-				controller_store[:round][:clients].delete(client_id)
-			end
+		if controller_store[:game].key?(:clients) then
+			controller_store[:game][:clients].delete(client_id)
+		end
 
+		if controller_store[:round].key?(:clients) then
+			controller_store[:round][:clients].delete(client_id)
+		end
+
+		if controller_store[:game][:state] == "RUNNING" then
 			if controller_store[:round].key?(:clients) then
 				if controller_store[:round][:clients].empty? then
 					if controller_store[:round][:state] == "PUSHED" then
