@@ -144,20 +144,23 @@ class WebsocketGameController < WebsocketRails::BaseController
 		client_id = client_id()
 		received_message = message()
 
-		# 試合情報更新
-		controller_store[:game][:clients][client_id] = {
-			:score => 0
-		}
-
-		# max_delay 更新
-		if controller_store[:game][:max_delay] < controller_store[:clients][client_id][:delay] then
-			controller_store[:game][:max_delay] = controller_store[:clients][client_id][:delay]
-		end
-
-		# 全員参加したら最初のラウンド開始
-		if controller_store[:clients].length <= controller_store[:game][:clients].length  then
+		if controller_store[:game][:state] == "WAITING" then
 			controller_store[:game][:state] = "RUNNING"
-			new_round
+
+			# 試合情報更新
+			controller_store[:game][:clients][client_id] = {
+				:score => 0
+			}
+
+			# max_delay 更新
+			if controller_store[:game][:max_delay] < controller_store[:clients][client_id][:delay] then
+				controller_store[:game][:max_delay] = controller_store[:clients][client_id][:delay]
+			end
+
+			# 全員参加したら最初のラウンド開始
+			if controller_store[:clients].length <= controller_store[:game][:clients].length then
+				new_round
+			end
 		end
 	end
 
@@ -262,7 +265,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 		# ラウンド情報更新
 		controller_store[:round] = {
 			:state => "WAITING",
-			:clients => controller_store[:clients].keys(),
+			:clients => controller_store[:game][:clients].keys(),
 			:winner => nil,
 			:min_elapsed_time => 0,
 			:add_score => 100
