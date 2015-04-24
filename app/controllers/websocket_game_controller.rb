@@ -13,6 +13,9 @@ class WebsocketGameController < WebsocketRails::BaseController
 		controller_store[:game] = {
 			:state => "CLOSED"
 		}
+		controller_store[:round] = {
+			:state => "CLOSED"
+		}
 	end
 
 	# クライアント接続時のイベントハンドラ
@@ -43,23 +46,30 @@ class WebsocketGameController < WebsocketRails::BaseController
 		controller_store[:clients].delete(client_id)
 		controller_store[:devices].delete(client_id)
 
-		if controller_store[:game][:clients].key?(client_id) then
-			controller_store[:game][:clients].delete(client_id)
-			controller_store[:round][:clients].delete(client_id)
+		if controller_store[:game][:state] == "RUNNING" then
+			if controller_store[:game].key?(:clients) then
+				controller_store[:game][:clients].delete(client_id)
+			end
+			logger.debug("A")
+			if controller_store[:round].key?(:clients) then
+				controller_store[:round][:clients].delete(client_id)
+			end
+			logger.debug("B")
 
-			if controller_store[:game][:state] == "RUNNING" then
+			logger.debug("#{controller_store[:round][:clients]}")
+			if controller_store[:round][:clients].empty? then
 				if controller_store[:round][:state] == "PUSHED" then
-					# すべてのクライアントから結果を受信したかどうか
-					if controller_store[:round][:clients].empty? then
-						close_round
-					end
-				end
-
-				if controller_store[:game][:clients].empty? then
-					close_game
+					close_round
 				end
 			end
+
+			logger.debug("#{controller_store[:game][:clients]}")
+			if controller_store[:game][:clients].empty? then
+				close_game
+			end
 		end
+
+		logger.debug("C")
 	end
 
 	# テスト用メソッド
@@ -132,7 +142,9 @@ class WebsocketGameController < WebsocketRails::BaseController
 			send_message(:request_game_rejected, {})
 		else
 			# 新規ゲーム作成
-			new_game
+			if controller_store[:game][:state] == "CLOSED" then
+				new_game
+			end
 			send_message(:request_game_accepted, {})
 		end
 	end
@@ -145,8 +157,6 @@ class WebsocketGameController < WebsocketRails::BaseController
 		received_message = message()
 
 		if controller_store[:game][:state] == "WAITING" then
-			controller_store[:game][:state] = "RUNNING"
-
 			# 試合情報更新
 			controller_store[:game][:clients][client_id] = {
 				:score => 0
@@ -159,6 +169,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 
 			# 全員参加したら最初のラウンド開始
 			if controller_store[:clients].length <= controller_store[:game][:clients].length then
+				controller_store[:game][:state] = "RUNNING"
 				new_round
 			end
 		end
