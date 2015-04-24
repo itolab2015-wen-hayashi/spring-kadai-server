@@ -10,6 +10,9 @@ class WebsocketGameController < WebsocketRails::BaseController
 		controller_store[:event_count] = 0
 		controller_store[:clients] = {}
 		controller_store[:devices] = {}
+		controller_store[:game] = {
+			:state => "CLOSED"
+		}
 	end
 
 	# クライアント接続時のイベントハンドラ
@@ -30,8 +33,6 @@ class WebsocketGameController < WebsocketRails::BaseController
 		send_message(:connect_accepted, {
 			:id => client_id
 		})
-
-		new_game
 	end
 
 	# クライアント切断時のイベントハンドラ
@@ -46,10 +47,16 @@ class WebsocketGameController < WebsocketRails::BaseController
 			controller_store[:game][:clients].delete(client_id)
 			controller_store[:round][:clients].delete(client_id)
 
-			if controller_store[:game][:state] == "PUSHED" then
-				# すべてのクライアントから結果を受信したかどうか
-				if controller_store[:round][:clients].empty? then
-					close_round
+			if controller_store[:game][:state] == "RUNNING" then
+				if controller_store[:round][:state] == "PUSHED" then
+					# すべてのクライアントから結果を受信したかどうか
+					if controller_store[:round][:clients].empty? then
+						close_round
+					end
+				end
+
+				if controller_store[:game][:clients].empty? then
+					close_game
 				end
 			end
 		end
@@ -115,6 +122,19 @@ class WebsocketGameController < WebsocketRails::BaseController
 			controller_store[:game][:max_delay] = delay
 		end
 		logger.debug("  max_delay = #{controller_store[:game][:max_delay]}")
+	end
+
+	# 新規ゲームをリクエスト
+	#
+	def request_game
+		if controller_store[:game][:state] == "RUNNING" then
+			# ゲーム中なので始められない
+			send_message(:request_game_rejected, {})
+		else
+			# 新規ゲーム作成
+			new_game
+			send_message(:request_game_accepted, {})
+		end
 	end
 
 	# 試合に参加する時に呼ばれるイベントハンドラ
