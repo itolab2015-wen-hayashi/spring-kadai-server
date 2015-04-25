@@ -71,8 +71,6 @@ class WebsocketGameController < WebsocketRails::BaseController
 				end
 			end
 		end
-
-		logger.debug("C")
 	end
 
 	# テスト用メソッド
@@ -122,8 +120,8 @@ class WebsocketGameController < WebsocketRails::BaseController
 		if controller_store[:clients].key?(client_id) then
 			client = controller_store[:clients][client_id]
 
-			client[:datetime_diff_samples][client[:ptr] % 5] = datetime_diff
-			client[:delay_samples][client[:ptr] % 5] = delay
+			client[:datetime_diff_samples][client[:ptr] % Constants::DATETIME_DIFF_SAMPLE_NUM] = datetime_diff
+			client[:delay_samples][client[:ptr] % Constants::DELAY_SAMPLE_NUM] = delay
 
 			client[:datetime_diff] = mean(client[:datetime_diff_samples])
 			client[:delay] = mean(client[:delay_samples])
@@ -242,7 +240,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 	private
 	def check_delay(connection)
 		connection.send_message :check_delay, {
-			:sent_time => Time.now.iso8601(6)
+			:sent_time => Time.now.iso8601(Constants::DATETIME_PRECISION)
 		}
 	end
 
@@ -292,12 +290,12 @@ class WebsocketGameController < WebsocketRails::BaseController
 		logger.debug(" --> round = #{controller_store[:round]}")
 
 		# タイルの設定
-		x = rand(0..5)
-		y = rand(0..9)
-		color = rand(0..3)
+		x = rand(Constants::TILE_X_MIN..Constants::TILE_X_MAX)
+		y = rand(Constants::TILE_Y_MIN..Constants::TILE_Y_MAX)
+		color = rand(Constants::TILE_COLOR_MIN..Constants::TILE_COLOR_MAX)
 
 		# ラウンドの開始時刻を決定
-		trigger_time = Time.now + controller_store[:game][:max_delay] + (rand(1000..2000) / 1000)
+		trigger_time = Time.now + controller_store[:game][:max_delay] + (rand(Constants::RANDOM_DELAY_MIN_MS..Constants::RANDOM_DELAY_MAX_MS) / 1000)
 		logger.debug(" --> trigger_time = #{trigger_time}")
 
 		# それぞれのクライアントにメッセージ送信
@@ -309,7 +307,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 				:x => x,
 				:y => y,
 				:color => color,
-				:trigger_time => (trigger_time - datetime_diff).iso8601(6)
+				:trigger_time => (trigger_time - datetime_diff).iso8601(Constants::DATETIME_PRECISION)
 			}
 
 			connection = clients[client_id][:connection]
