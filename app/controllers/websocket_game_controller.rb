@@ -91,11 +91,10 @@ class WebsocketGameController < WebsocketRails::BaseController
 		received_message = message()
 		logger.debug("  #{client_id}: #{received_message}")
 
-		# デバイス名を取得 // TODO
-		controller_store[:clients][client_id][:device] = {
-			:name => received_message[:name]
-		}
-		controller_store[:devices][client_id] = received_message[:name]
+		# デバイス名を取得
+		controller_store[:devices][client_id] = {
+			:name => ""	
+		}.merge(received_message)
 
 		send_client_list
 	end
