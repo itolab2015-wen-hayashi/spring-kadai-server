@@ -360,9 +360,18 @@ class WebsocketGameController < WebsocketRails::BaseController
 		controller_store[:game][:winner] = winner
 		logger.debug(" --> game = #{controller_store[:game]}")
 
+		# スコア一覧を生成
+		scores = {}
+		controller_store[:game][:clients].each { |client_id, client| 
+			scores[client_id] = client[:score]
+		}
+		scores.sort_by { |key,val| -val }
+		logger.debug(" --> scores = #{scores}")
+
 		# メッセージ送信
 		message_to_send = {
-			:winner => winner
+			:winner => winner,
+			:scores => scores
 		}
 
 		broadcast_message(:close_game, message_to_send)
