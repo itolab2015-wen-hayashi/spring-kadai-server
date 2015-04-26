@@ -364,7 +364,7 @@ class WebsocketGameController < WebsocketRails::BaseController
 		controller_store[:game][:clients].each { |client_id, client| 
 			scores[client_id] = client[:score]
 		}
-		scores.sort_by { |key,val| -val }
+		scores.sort_by { |key,val| val }
 		logger.debug(" --> scores = #{scores}")
 
 		# メッセージ送信
