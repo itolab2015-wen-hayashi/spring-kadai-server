@@ -71,6 +71,8 @@ class WebsocketGameController < WebsocketRails::BaseController
 				end
 			end
 		end
+
+		send_client_list
 	end
 
 	# テスト用メソッド
